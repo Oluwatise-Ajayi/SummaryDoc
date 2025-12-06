@@ -3,7 +3,7 @@ import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { ConfigService } from '@nestjs/config';
-import * as pdf from 'pdf-parse';
+const pdf = require('pdf-parse');
 import * as mammoth from 'mammoth';
 import OpenAI from 'openai';
 
@@ -101,15 +101,21 @@ export class DocumentsService {
 
         const content = completion.choices[0].message.content;
         let analysisResult: any = {};
-        try {
-            const jsonMatch = content.match(/\{[\s\S]*\}/);
-            if (jsonMatch) {
-                analysisResult = JSON.parse(jsonMatch[0]);
-            } else {
+
+        if (!content) {
+            analysisResult = { summary: 'No analysis generated' };
+        } else {
+            try {
+                // Find JSON in content
+                const jsonMatch = content.match(/\{[\s\S]*\}/);
+                if (jsonMatch) {
+                    analysisResult = JSON.parse(jsonMatch[0]);
+                } else {
+                    analysisResult = { summary: content };
+                }
+            } catch (e) {
                 analysisResult = { summary: content };
             }
-        } catch (e) {
-            analysisResult = { summary: content };
         }
 
         return this.prisma.document.update({
