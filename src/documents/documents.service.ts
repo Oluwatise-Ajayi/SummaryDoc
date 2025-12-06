@@ -1,11 +1,11 @@
-
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { ConfigService } from '@nestjs/config';
-const pdf = require('pdf-parse');
 import * as mammoth from 'mammoth';
 import OpenAI from 'openai';
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const pdfjsLib = require('pdfjs-dist/legacy/build/pdf.js');
 
 @Injectable()
 export class DocumentsService {
@@ -22,7 +22,7 @@ export class DocumentsService {
                 accessKeyId: this.configService.get('AWS_ACCESS_KEY_ID') || 'mock',
                 secretAccessKey: this.configService.get('AWS_SECRET_ACCESS_KEY') || 'mock',
             },
-            endpoint: this.configService.get('AWS_ENDPOINT'), // For Minio/LocalStack support
+            endpoint: this.configService.get('AWS_ENDPOINT'),
             forcePathStyle: true,
         });
         this.bucketName = this.configService.get('AWS_S3_BUCKET_NAME') || 'documents';
@@ -47,8 +47,32 @@ export class DocumentsService {
         // 2. Extract Text
         let extractedText = '';
         if (file.mimetype === 'application/pdf') {
-            const data = await pdf(file.buffer);
-            extractedText = data.text;
+            try {
+                const loadingTask = pdfjsLib.getDocument({
+                    data: new Uint8Array(file.buffer),
+                    useSystemFonts: true,
+                });
+                const pdfDocument = await loadingTask.promise;
+                const numPages = pdfDocument.numPages;
+
+                const textPromises: Promise<string>[] = [];
+                for (let i = 1; i <= numPages; i++) {
+                    textPromises.push(
+                        pdfDocument.getPage(i).then(async (page) => {
+                            const textContent = await page.getTextContent();
+                            return textContent.items
+                                .map((item: any) => item.str)
+                                .join(' ');
+                        })
+                    );
+                }
+
+                const pageTexts = await Promise.all(textPromises);
+                extractedText = pageTexts.join('\n\n');
+            } catch (error) {
+                console.error('PDF extraction error:', error);
+                extractedText = 'Failed to extract PDF text';
+            }
         } else if (
             file.mimetype === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
         ) {
