@@ -1,0 +1,22 @@
+generator client {
+  provider = "prisma-client-js"
+  binaryTargets = ["native", "windows"]
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model Document {
+  id            String   @id @default(uuid())
+  originalName  String
+  mimeType      String
+  fileSize      Int
+  s3Key         String
+  extractedText String?
+  summary       String?
+  docType       String?
+  metadata      String? // Storing JSON as string
+  createdAt     DateTime @default(now())
+}

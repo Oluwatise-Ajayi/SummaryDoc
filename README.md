@@ -1,98 +1,213 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# Document Summary & Analysis API
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+## Overview
+This project is a robust backend API built with NestJS, TypeScript, and Prisma, designed to facilitate document upload, extract text, and perform AI-powered analysis, including summarization and metadata extraction.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+## Features
+-   💾 **Document Upload**: Securely upload documents (PDF, DOCX) to AWS S3 (or compatible storage).
+-   📝 **Text Extraction**: Automatically extract readable text from uploaded PDF and DOCX files.
+-   ✨ **AI-Powered Analysis**: Leverage OpenAI/OpenRouter to generate concise summaries, classify document types, and extract key attributes.
+-   🔍 **Document Retrieval**: Fetch uploaded and analyzed document details by ID.
+-   🗄️ **Robust Data Persistence**: Store document metadata and analysis results using Prisma ORM with SQLite (or PostgreSQL for production).
 
-## Description
+## Getting Started
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+### Installation
+To get this project up and running locally, follow these steps:
 
-## Project setup
+1.  **Clone the Repository**:
+    ```bash
+    git clone https://github.com/Oluwatise-Ajayi/SummaryDoc.git
+    cd SummaryDoc
+    ```
 
-```bash
-$ npm install
+2.  **Install Dependencies**:
+    ```bash
+    npm install
+    ```
+
+3.  **Generate Prisma Client**:
+    ```bash
+    npx prisma generate
+    npx prisma db push
+    ```
+
+4.  **Run Database Migrations**:
+    This will create the `dev.db` SQLite file.
+    ```bash
+    npx prisma migrate dev --name init
+    ```
+
+5.  **Start the Application**:
+    ```bash
+    npm run start:dev
+    ```
+    The application will typically run on `http://localhost:3000` or the port specified in your environment variables.
+
+### Environment Variables
+Create a `.env` file in the root directory of the project and populate it with the following variables:
+
+```plaintext
+# Application Port
+PORT=3000
+
+# AWS S3 Configuration (for Minio/LocalStack or actual AWS S3)
+AWS_REGION=us-east-1
+AWS_ACCESS_KEY_ID=minioadmin # Example for Minio
+AWS_SECRET_ACCESS_KEY=minioadmin # Example for Minio
+AWS_ENDPOINT=http://localhost:9000 # Example for Minio/LocalStack S3 endpoint
+AWS_S3_BUCKET_NAME=documents # S3 bucket name
+
+# OpenAI/OpenRouter Configuration
+OPENROUTER_API_KEY=YOUR_OPENROUTER_API_KEY_HERE
 ```
 
-## Compile and run the project
+## API Documentation
 
-```bash
-# development
-$ npm run start
+### Base URL
+`http://localhost:3000/api/v1` (or `process.env.PORT`)
 
-# watch mode
-$ npm run start:dev
+### Endpoints
 
-# production mode
-$ npm run start:prod
+#### POST /documents/upload
+Uploads a document for storage and initial text extraction.
+
+**Request**:
+`Content-Type: multipart/form-data`
+
+| Field | Type | Description | Required | Example |
+| :---- | :--- | :---------- | :------- | :------ |
+| `file` | File | The document file to upload (e.g., PDF, DOCX). Max size 5MB. | `true` | (binary file data) |
+
+**Response**:
+```json
+{
+  "id": "clxb9s26g0000d0w2k6y1s1v6",
+  "originalName": "example.pdf",
+  "mimeType": "application/pdf",
+  "fileSize": 12345,
+  "s3Key": "1678886400000-example.pdf",
+  "extractedText": "Extracted text content...",
+  "summary": null,
+  "docType": null,
+  "metadata": null,
+  "createdAt": "2023-03-15T10:00:00.000Z"
+}
 ```
 
-## Run tests
+**Errors**:
+-   `400 Bad Request`: "No file provided"
+-   `400 Bad Request`: "Validation failed (expected size is less than 5242880 bytes)" (File too large)
+-   `400 Bad Request`: "Validation failed (expected file type is .(pdf|docx))" (Unsupported file type - if type validator is active)
 
-```bash
-# unit tests
-$ npm run test
+#### POST /documents/:id/analyze
+Triggers AI analysis (summarization, type classification, metadata extraction) for a previously uploaded document.
 
-# e2e tests
-$ npm run test:e2e
+**Request**:
+No payload. The document ID is passed as a URL parameter.
 
-# test coverage
-$ npm run test:cov
+**Response**:
+```json
+{
+  "id": "clxb9s26g0000d0w2k6y1s1v6",
+  "originalName": "example.pdf",
+  "mimeType": "application/pdf",
+  "fileSize": 12345,
+  "s3Key": "1678886400000-example.pdf",
+  "extractedText": "Extracted text content...",
+  "summary": "A concise summary of the document's content.",
+  "docType": "Report",
+  "metadata": "{\"date\": \"2023-03-10\", \"author\": \"John Doe\"}",
+  "createdAt": "2023-03-15T10:00:00.000Z"
+}
 ```
 
-## Deployment
+**Errors**:
+-   `400 Bad Request`: "Document not found"
+-   `400 Bad Request`: "Document has no extracted text"
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
+#### GET /documents/:id
+Retrieves the details of a specific document, including its extracted text, summary, and metadata.
 
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+**Request**:
+No payload. The document ID is passed as a URL parameter.
 
-```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
+**Response**:
+```json
+{
+  "id": "clxb9s26g0000d0w2k6y1s1v6",
+  "originalName": "example.pdf",
+  "mimeType": "application/pdf",
+  "fileSize": 12345,
+  "s3Key": "1678886400000-example.pdf",
+  "extractedText": "Extracted text content...",
+  "summary": "A concise summary of the document's content.",
+  "docType": "Report",
+  "metadata": "{\"date\": \"2023-03-10\", \"author\": \"John Doe\"}",
+  "createdAt": "2023-03-15T10:00:00.000Z"
+}
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+**Errors**:
+-   `400 Bad Request`: "Document not found"
 
-## Resources
+## Usage
+Once the API is running, you can interact with it using tools like `curl` or Postman.
 
-Check out a few resources that may come in handy when working with NestJS:
+### 1. Upload a Document
+First, upload a PDF or DOCX file.
+```bash
+curl -X POST \
+  -H "Content-Type: multipart/form-data" \
+  -F "file=@/path/to/your/document.pdf" \
+  http://localhost:3000/documents/upload
+```
+Replace `/path/to/your/document.pdf` with the actual path to your file. The response will include the `id` of the uploaded document.
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+### 2. Analyze the Document
+Use the `id` obtained from the upload step to trigger AI analysis.
+```bash
+curl -X POST \
+  http://localhost:3000/documents/YOUR_DOCUMENT_ID/analyze
+```
+Replace `YOUR_DOCUMENT_ID` with the actual ID. The response will show the document updated with `summary`, `docType`, and `metadata`.
 
-## Support
+### 3. Retrieve Document Details
+Fetch the full details of any document using its `id`.
+```bash
+curl -X GET \
+  http://localhost:3000/documents/YOUR_DOCUMENT_ID
+```
+Replace `YOUR_DOCUMENT_ID` with the actual ID. This will return the complete document object.
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+## Contributing
+We welcome contributions to enhance this project! To contribute:
 
-## Stay in touch
-
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+*   🍴 Fork the repository.
+*   🌳 Create a new branch (`git checkout -b feature/your-feature-name`).
+*   📝 Make your changes and ensure they adhere to the project's coding standards.
+*   🧪 Write and run tests to ensure your changes work as expected and do not introduce regressions.
+*   🚀 Commit your changes (`git commit -m 'feat: Add new feature'`).
+*   ⬆️ Push to your branch (`git push origin feature/your-feature-name`).
+*   🤝 Open a Pull Request, describing your changes in detail.
 
 ## License
+This project is currently unlicensed.
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+## Author
+**Oluwatise Ajayi**
+
+*   LinkedIn: [https://linkedin.com/in/Oluwatise-Ajayi](https://linkedin.com/in/Oluwatise-Ajayi)
+*   Twitter: [https://twitter.com/Oluwatise-Ajayi](https://twitter.com/Oluwatise-Ajayi)
+
+---
+[![NestJS](https://img.shields.io/badge/nestjs-%23E0234E.svg?style=for-the-badge&logo=nestjs&logoColor=white)](https://nestjs.com/)
+[![TypeScript](https://img.shields.io/badge/typescript-%23007ACC.svg?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Prisma](https://img.shields.io/badge/Prisma-3982CE?style=for-the-badge&logo=Prisma&logoColor=white)](https://www.prisma.io/)
+[![SQLite](https://img.shields.io/badge/sqlite-%2307405e.svg?style=for-the-badge&logo=sqlite&logoColor=white)](https://www.sqlite.org/index.html)
+[![AWS S3](https://img.shields.io/badge/AWS%20S3-569A31?style=for-the-badge&logo=amazons3&logoColor=white)](https://aws.amazon.com/s3/)
+[![OpenAI](https://img.shields.io/badge/OpenAI-412991?style=for-the-badge&logo=openai&logoColor=white)](https://openai.com/)
+[![ESLint](https://img.shields.io/badge/eslint-%234B32C3.svg?style=for-the-badge&logo=eslint&logoColor=white)](https://eslint.org/)
+[![Prettier](https://img.shields.io/badge/prettier-%231A2C34.svg?style=for-the-badge&logo=prettier&logoColor=white)](https://prettier.io/)
+
+[![Readme was generated by Dokugen](https://img.shields.io/badge/Readme%20was%20generated%20by-Dokugen-brightgreen)](https://www.npmjs.com/package/dokugen)
