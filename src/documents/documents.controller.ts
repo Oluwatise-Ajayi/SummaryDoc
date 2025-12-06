@@ -34,12 +34,14 @@ export class DocumentsController {
         },
     })
     @ApiResponse({ status: 201, description: 'File uploaded successfully' })
+    @ApiResponse({ status: 400, description: 'Validation failed (file size or type)' })
     @UseInterceptors(FileInterceptor('file'))
     async uploadFile(
         @UploadedFile(
             new ParseFilePipe({
                 validators: [
                     new MaxFileSizeValidator({ maxSize: 5 * 1024 * 1024 }), // 5MB
+                    new FileTypeValidator({ fileType: '.(pdf|docx)' }),
                 ],
             }),
         )
