@@ -9,10 +9,11 @@ import {
     FileTypeValidator,
     Param,
     Get,
+    Query,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { DocumentsService } from './documents.service';
-import { ApiTags, ApiOperation, ApiConsumes, ApiBody, ApiResponse, ApiParam } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiConsumes, ApiBody, ApiResponse, ApiParam, ApiQuery } from '@nestjs/swagger';
 
 @ApiTags('documents')
 @Controller('documents')
@@ -53,9 +54,14 @@ export class DocumentsController {
     @Post(':id/analyze')
     @ApiOperation({ summary: 'Trigger AI analysis for a document' })
     @ApiParam({ name: 'id', description: 'Document ID' })
+    @ApiQuery({ name: 'force', required: false, type: Boolean, description: 'Force re-analysis if already analyzed' })
     @ApiResponse({ status: 200, description: 'Analysis complete' })
-    async analyzeDocument(@Param('id') id: string) {
-        return this.documentsService.analyzeDocument(id);
+    async analyzeDocument(
+        @Param('id') id: string,
+        @Query('force') force?: boolean,
+    ) {
+        const forceBool = force === true || String(force) === 'true';
+        return this.documentsService.analyzeDocument(id, forceBool);
     }
 
     @Get(':id')

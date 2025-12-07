@@ -116,11 +116,17 @@ export class DocumentsService {
         return document;
     }
 
-    async analyzeDocument(id: string) {
+    async analyzeDocument(id: string, force?: boolean) {
         const document = await this.prisma.document.findUnique({ where: { id } });
         if (!document) {
             throw new BadRequestException('Document not found');
         }
+        if (document.summary && !force) {
+            throw new BadRequestException(
+                'Document already analyzed. Use force=true to re-analyze.',
+            );
+        }
+
         if (!document.extractedText || document.extractedText.trim().length === 0) {
             throw new BadRequestException('Document has no extracted text');
         }
