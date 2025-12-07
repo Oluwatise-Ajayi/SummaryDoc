@@ -76,8 +76,15 @@ export class DocumentsService {
         } else if (
             file.mimetype === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
         ) {
-            const result = await mammoth.extractRawText({ buffer: file.buffer });
-            extractedText = result.value;
+            try {
+                const result = await mammoth.extractRawText({ buffer: file.buffer });
+                extractedText = result.value;
+            } catch (error) {
+                console.error('DOCX extraction error:', error);
+                extractedText = 'Failed to extract DOCX text';
+            }
+        } else {
+            throw new BadRequestException('Unsupported file type for text extraction');
         }
 
         // 3. Save to DB
@@ -118,12 +125,19 @@ export class DocumentsService {
     ${document.extractedText.slice(0, 10000)}
     `;
 
-        const completion = await openai.chat.completions.create({
-            model: 'openai/gpt-3.5-turbo', // Or any free model on OpenRouter
-            messages: [{ role: 'user', content: prompt }],
-        });
+        let content = '';
 
-        const content = completion.choices[0].message.content;
+        try {
+            const completion = await openai.chat.completions.create({
+                model: 'openai/gpt-3.5-turbo',
+                messages: [{ role: 'user', content: prompt }],
+            });
+            content = completion.choices[0].message.content || '';
+        } catch (error) {
+            console.error('OpenAI analysis error:', error);
+            throw new BadRequestException('Failed to analyze document with AI');
+        }
+
         let analysisResult: any = {};
 
         if (!content) {
