@@ -10,8 +10,10 @@ import {
     Param,
     Get,
     Query,
+    BadRequestException,
+    UploadedFiles,
 } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
+import { FilesInterceptor } from '@nestjs/platform-express';
 import { DocumentsService } from './documents.service';
 import { ApiTags, ApiOperation, ApiConsumes, ApiBody, ApiResponse, ApiParam, ApiQuery } from '@nestjs/swagger';
 
@@ -36,18 +38,23 @@ export class DocumentsController {
     })
     @ApiResponse({ status: 201, description: 'File uploaded successfully' })
     @ApiResponse({ status: 400, description: 'Validation failed (file size or type)' })
-    @UseInterceptors(FileInterceptor('file'))
+    @UseInterceptors(FilesInterceptor('file'))
     async uploadFile(
-        @UploadedFile(
-            new ParseFilePipe({
-                validators: [
-                    new MaxFileSizeValidator({ maxSize: 5 * 1024 * 1024 }), // 5MB
-                    new FileTypeValidator({ fileType: '.(pdf|docx)' }),
-                ],
-            }),
-        )
-        file: Express.Multer.File,
+        @UploadedFiles() files: Array<Express.Multer.File>,
     ) {
+        if (!files || files.length === 0) {
+            throw new BadRequestException('No file provided');
+        }
+        if (files.length > 1) {
+            throw new BadRequestException('Please upload only one file at a time');
+        }
+
+        const file = files[0];
+
+        if (file.size > 5 * 1024 * 1024) {
+            throw new BadRequestException('File is too large. Max size is 5MB');
+        }
+
         return this.documentsService.uploadDocument(file);
     }
 
