@@ -4,7 +4,6 @@ import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { ConfigService } from '@nestjs/config';
 import * as mammoth from 'mammoth';
 import OpenAI from 'openai';
-// eslint-disable-next-line @typescript-eslint/no-require-imports
 const pdfjsLib = require('pdfjs-dist/legacy/build/pdf.js');
 
 @Injectable()
