@@ -33,6 +33,17 @@ export class DocumentsService {
             throw new BadRequestException('No file provided');
         }
 
+        const validMimeTypes = [
+            'application/pdf',
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        ];
+
+        if (!validMimeTypes.includes(file.mimetype)) {
+            throw new BadRequestException(
+                'Unsupported file type. Only PDF and DOCX are allowed.',
+            );
+        }
+
         // 1. Upload to S3
         const s3Key = `${Date.now()}-${file.originalname}`;
         await this.s3Client.send(
@@ -69,6 +80,12 @@ export class DocumentsService {
 
                 const pageTexts = await Promise.all(textPromises);
                 extractedText = pageTexts.join('\n\n');
+
+                if (extractedText.trim().length === 0) {
+                    console.warn(
+                        'Warning: Extracted text is empty. This document might be a scanned PDF with no text layer.',
+                    );
+                }
             } catch (error) {
                 console.error('PDF extraction error:', error);
                 extractedText = 'Failed to extract PDF text';
@@ -83,8 +100,6 @@ export class DocumentsService {
                 console.error('DOCX extraction error:', error);
                 extractedText = 'Failed to extract DOCX text';
             }
-        } else {
-            throw new BadRequestException('Unsupported file type for text extraction');
         }
 
         // 3. Save to DB
