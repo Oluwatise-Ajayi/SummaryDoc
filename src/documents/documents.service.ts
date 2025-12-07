@@ -44,18 +44,7 @@ export class DocumentsService {
             );
         }
 
-        // 1. Upload to S3
-        const s3Key = `${Date.now()}-${file.originalname}`;
-        await this.s3Client.send(
-            new PutObjectCommand({
-                Bucket: this.bucketName,
-                Key: s3Key,
-                Body: file.buffer,
-                ContentType: file.mimetype,
-            }),
-        );
-
-        // 2. Extract Text
+        // 1. Extract Text
         let extractedText = '';
         if (file.mimetype === 'application/pdf') {
             try {
@@ -80,15 +69,9 @@ export class DocumentsService {
 
                 const pageTexts = await Promise.all(textPromises);
                 extractedText = pageTexts.join('\n\n');
-
-                if (extractedText.trim().length === 0) {
-                    console.warn(
-                        'Warning: Extracted text is empty. This document might be a scanned PDF with no text layer.',
-                    );
-                }
             } catch (error) {
                 console.error('PDF extraction error:', error);
-                extractedText = 'Failed to extract PDF text';
+                throw new BadRequestException('Failed to extract PDF text');
             }
         } else if (
             file.mimetype === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
@@ -98,9 +81,27 @@ export class DocumentsService {
                 extractedText = result.value;
             } catch (error) {
                 console.error('DOCX extraction error:', error);
-                extractedText = 'Failed to extract DOCX text';
+                throw new BadRequestException('Failed to extract DOCX text');
             }
         }
+
+        // Check if text is empty
+        if (!extractedText || extractedText.trim().length === 0) {
+            throw new BadRequestException(
+                'Unable to extract text. The document might be empty or a scanned image.',
+            );
+        }
+
+        // 2. Upload to S3
+        const s3Key = `${Date.now()}-${file.originalname}`;
+        await this.s3Client.send(
+            new PutObjectCommand({
+                Bucket: this.bucketName,
+                Key: s3Key,
+                Body: file.buffer,
+                ContentType: file.mimetype,
+            }),
+        );
 
         // 3. Save to DB
         const document = await this.prisma.document.create({
@@ -121,7 +122,7 @@ export class DocumentsService {
         if (!document) {
             throw new BadRequestException('Document not found');
         }
-        if (!document.extractedText) {
+        if (!document.extractedText || document.extractedText.trim().length === 0) {
             throw new BadRequestException('Document has no extracted text');
         }
 
