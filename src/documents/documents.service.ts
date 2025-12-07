@@ -182,7 +182,7 @@ export class DocumentsService {
             data: {
                 summary: analysisResult.summary,
                 docType: analysisResult.type,
-                metadata: JSON.stringify(analysisResult.attributes || {}),
+                metadata: analysisResult.attributes || {},
             },
         });
     }

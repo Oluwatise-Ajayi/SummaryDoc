@@ -4,7 +4,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -17,6 +17,6 @@ model Document {
   extractedText String?
   summary       String?
   docType       String?
-  metadata      String? // Storing JSON as string
+  metadata      Json?
   createdAt     DateTime @default(now())
 }
