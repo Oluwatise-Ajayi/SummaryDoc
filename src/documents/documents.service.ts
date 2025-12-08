@@ -3,7 +3,8 @@ import { PrismaService } from '../prisma/prisma.service';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { ConfigService } from '@nestjs/config';
 import * as mammoth from 'mammoth';
-import OpenAI from 'openai';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
 const pdfjsLib = require('pdfjs-dist/legacy/build/pdf.js');
 
 @Injectable()
@@ -14,6 +15,7 @@ export class DocumentsService {
     constructor(
         private prisma: PrismaService,
         private configService: ConfigService,
+        @InjectQueue('documents') private documentQueue: Queue,
     ) {
         this.s3Client = new S3Client({
             region: this.configService.get('AWS_REGION'),
@@ -131,60 +133,23 @@ export class DocumentsService {
             throw new BadRequestException('Document has no extracted text');
         }
 
-        const openai = new OpenAI({
-            apiKey: this.configService.get('OPENROUTER_API_KEY'),
-            baseURL: 'https://openrouter.ai/api/v1',
-        });
+        const job = await this.documentQueue.add('analyze', { id, force });
+        return { jobId: job.id, message: 'Analysis started' };
+    }
 
-        const prompt = `
-    Analyze the following document text and return a JSON object with:
-    - summary: A concise summary of the content.
-    - type: The type of document (e.g., Invoice, Resume, Report).
-    - attributes: Key-value pairs of extracted metadata (e.g., dates, names, amounts).
-
-    Text:
-    ${document.extractedText.slice(0, 10000)}
-    `;
-
-        let content = '';
-
-        try {
-            const completion = await openai.chat.completions.create({
-                model: 'openai/gpt-3.5-turbo',
-                messages: [{ role: 'user', content: prompt }],
-            });
-            content = completion.choices[0].message.content || '';
-        } catch (error) {
-            console.error('OpenAI analysis error:', error);
-            throw new BadRequestException('Failed to analyze document with AI');
+    async getJobStatus(jobId: string) {
+        const job = await this.documentQueue.getJob(jobId);
+        if (!job) {
+            return { status: 'not_found' };
         }
-
-        let analysisResult: any = {};
-
-        if (!content) {
-            analysisResult = { summary: 'No analysis generated' };
-        } else {
-            try {
-                // Find JSON in content
-                const jsonMatch = content.match(/\{[\s\S]*\}/);
-                if (jsonMatch) {
-                    analysisResult = JSON.parse(jsonMatch[0]);
-                } else {
-                    analysisResult = { summary: content };
-                }
-            } catch (e) {
-                analysisResult = { summary: content };
-            }
-        }
-
-        return this.prisma.document.update({
-            where: { id },
-            data: {
-                summary: analysisResult.summary,
-                docType: analysisResult.type,
-                metadata: analysisResult.attributes || {},
-            },
-        });
+        const state = await job.getState();
+        return {
+            jobId: job.id,
+            status: state,
+            data: job.data,
+            returnValue: job.returnvalue,
+            failedReason: job.failedReason,
+        };
     }
 
     async getDocument(id: string) {

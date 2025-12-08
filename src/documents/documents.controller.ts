@@ -71,6 +71,14 @@ export class DocumentsController {
         return this.documentsService.analyzeDocument(id, forceBool);
     }
 
+    @Get('job/:id')
+    @ApiOperation({ summary: 'Get analysis job status' })
+    @ApiParam({ name: 'id', description: 'Job ID' })
+    @ApiResponse({ status: 200, description: 'Job status and result' })
+    async getJobStatus(@Param('id') id: string) {
+        return this.documentsService.getJobStatus(id);
+    }
+
     @Get(':id')
     @ApiOperation({ summary: 'Get document details and analysis' })
     @ApiParam({ name: 'id', description: 'Document ID' })
